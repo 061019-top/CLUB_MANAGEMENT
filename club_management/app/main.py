@@ -2,10 +2,13 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from app.db.database import Base, engine
-from app.utils.response import build_response # noqa: F401 – re-exported for routers
+from app.utils.response import build_response 
 from app.models.user import User
 from app.models.club import Club, ClubMember
 from app.models.activity import ClubActivity 
+
+
+
 
 # Handler: Bắt lỗi HTTPException (400, 401, 403, 404...)
 async def http_exception_handler(request: Request, exc: HTTPException):
@@ -47,14 +50,47 @@ async def internal_exception_handler(request: Request, exc: Exception):
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Student Club Management API", version="1.0.0")
+tags_metadata = [
+    {
+        "name": "Auth",
+        "description": "Quản lý đăng ký, đăng nhập và cấp phát token JWT.",
+    },
+    {
+        "name": "User",
+        "description": "Quản lý thông tin hồ sơ và danh sách người dùng.",
+    },
+    {
+        "name": "Câu lạc bộ",
+        "description": "Quản lý câu lạc bộ và thành viên câu lạc bộ.",
+    },
+    {
+        "name": "Hoạt động câu lạc bộ",
+        "description": "Quản lý các hoạt động, sự kiện, công việc trong câu lạc bộ.",
+    },
+]
+
+app = FastAPI(
+    title="Student Club Management API",
+    description="API quản lý câu lạc bộ sinh viên: Tạo câu lạc bộ, quản lý thành viên, và phân công hoạt động.",
+    version="1.0.0",
+    openapi_tags=tags_metadata,
+)
 
 app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(Exception, internal_exception_handler)
 
-from app.routers import auth, users, club  # noqa: E402 – import after app creation to avoid circular imports
+@app.get("/")
+def get_api():
+    return {"message": "Student Club Management API is running"}
+
+@app.get("/health", tags=["Health Check"])
+def health_check():
+    return {"status": "ok", "message": "Server is running smoothly!"}
+
+from app.routers import auth, users, club, activity
 
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(club.router)
+app.include_router(activity.router)

@@ -6,15 +6,23 @@ from app.core.config import settings
 from app.db.database import get_db
 from app.models.user import User, UserRole
 
-security = HTTPBearer()
+# 1. Thêm auto_error=False vào đây
+security = HTTPBearer(auto_error=False)
 
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)):
-    token = credentials.credentials
+    # 2. Khai báo sẵn exception của bạn
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Không thể xác thực thông tin đăng nhập",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    
+    # 3. Tự kiểm tra nếu user không truyền token
+    if not credentials:
+        raise credentials_exception
+        
+    token = credentials.credentials
+    
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         user_id: str = payload.get("sub")

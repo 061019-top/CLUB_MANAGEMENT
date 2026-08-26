@@ -32,7 +32,7 @@ def register(request: Request, user_in: UserCreate, db: Session = Depends(get_db
 
     return build_response(
         status_code=201,
-        message="Đăng ký tài khoản thành công",
+        message=f"Đăng ký tài khoản thành công{new_user.email}", # sửa thêm email như thầy muốn sửa 
         path=request.url.path,
         data=UserResponse.model_validate(new_user).model_dump(),
     )

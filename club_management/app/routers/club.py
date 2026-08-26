@@ -187,9 +187,7 @@ def delete_club(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Xóa câu lạc bộ (kèm toàn bộ thành viên và hoạt động). Chỉ **OWNER** mới có quyền.
-    """
+   
     club = get_club_or_404(club_id, db)
     require_owner(club_id, current_user, db)
 
