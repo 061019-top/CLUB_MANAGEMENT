@@ -6,7 +6,7 @@ from app.core.config import settings
 from app.db.database import get_db
 from app.models.user import User, UserRole
 
-# 1. Thêm auto_error=False vào đây
+
 security = HTTPBearer(auto_error=False)
 
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)):

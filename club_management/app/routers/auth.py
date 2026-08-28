@@ -19,6 +19,30 @@ def register(request: Request, user_in: UserCreate, db: Session = Depends(get_db
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email đã được đăng ký"
         )
+    #TODO
+    # sửa task 16
+    if len(user_in.full_name.strip().split()) < 2:
+        raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=" full_name phải có ít nhất 2 từ chứa dấu cách"
+                )
+    # sửa code 2 
+    kitu ='@#$%!'
+    check_kitu = 0
+
+    for chu in user_in.password:
+        if chu in kitu:
+            check_kitu = 1
+            break
+
+    if len(user_in.password.strip()) < 8 or check_kitu == 0:
+         raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Mật khẩu phải có 8 kí tự và có kí tự đặc biệt là {kitu}"
+                )   
+
+
+    #TODO
 
     hashed_password = get_password_hash(user_in.password)
     new_user = User(
@@ -32,19 +56,31 @@ def register(request: Request, user_in: UserCreate, db: Session = Depends(get_db
 
     return build_response(
         status_code=201,
-        message=f"Đăng ký tài khoản thành công{new_user.email}", # sửa thêm email như thầy muốn sửa 
+        message="Đăng ký tài khoản thành công",
         path=request.url.path,
-        data=UserResponse.model_validate(new_user).model_dump(),
+        #data=UserResponse.model_validate(new_user).model_dump(),
+
+        #sửa code 1 
+        data = {
+            'id' : new_user.id,
+            'email': new_user.email
+        }
     )
 
 @router.post("/login")
 def login(request: Request, login_data: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == login_data.email).first()
     if not user or not verify_password(login_data.password, user.password_hash):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Email hoặc mật khẩu không chính xác",
-            headers={"WWW-Authenticate": "Bearer"},
+        # raise HTTPException(
+        #     status_code=status.HTTP_401_UNAUTHORIZED,
+        #     detail="Email hoặc mật khẩu không chính xác",
+        #     headers={"WWW-Authenticate": "Bearer"},
+        # )
+        # sửa code 5 
+        raise HTTPException (
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Sai thông tin đăng nhập",
+            headers={"WWW-Authenticate": "Bearer"}, 
         )
 
     if not user.is_active:
@@ -59,5 +95,9 @@ def login(request: Request, login_data: LoginRequest, db: Session = Depends(get_
         status_code=200,
         message="Đăng nhập thành công",
         path=request.url.path,
-        data={"access_token": access_token, "token_type": "bearer"},
+        #data={"access_token": access_token, "token_type": "bearer"},
+
+        # sửa code 3 
+        data={"access_token": access_token, "token_type": "bearer", 'id':user.id, 'email':user.email, 'role': user.role},
+
     )

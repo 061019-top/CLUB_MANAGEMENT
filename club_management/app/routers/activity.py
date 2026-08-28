@@ -13,7 +13,9 @@ from app.utils.response import build_response
 
 router = APIRouter(tags=["Hoạt động câu lạc bộ"])
 
+
 def get_club_or_404(club_id: int, db: Session) -> Club:
+    """Kiểm tra CLB có tồn tại không. Nếu không có, lập tức dừng và báo lỗi 404."""
     club = db.query(Club).filter(Club.id == club_id).first()
     if not club:
         raise HTTPException(
@@ -23,6 +25,7 @@ def get_club_or_404(club_id: int, db: Session) -> Club:
     return club
 
 def get_membership(club_id: int, user_id: int, db: Session) -> Optional[ClubMember]:
+    """Kiểm tra user có tham gia CLB không. Chỉ trả về dữ liệu hoặc None, không báo lỗi."""
     return (
         db.query(ClubMember)
         .filter(ClubMember.club_id == club_id, ClubMember.user_id == user_id)
@@ -30,6 +33,7 @@ def get_membership(club_id: int, user_id: int, db: Session) -> Optional[ClubMemb
     )
 
 def require_membership(club_id: int, user: User, db: Session) -> ClubMember:
+    """Bắt buộc người gọi API phải là thành viên CLB. Nếu không phải, chặn bằng lỗi 403."""
     membership = get_membership(club_id, user.id, db)
     if not membership:
         raise HTTPException(
@@ -39,6 +43,7 @@ def require_membership(club_id: int, user: User, db: Session) -> ClubMember:
     return membership
 
 def require_owner(club_id: int, user: User, db: Session) -> ClubMember:
+    """Bắt buộc người gọi API phải là Chủ nhiệm (OWNER). Nếu là MEMBER thường, chặn bằng lỗi 403."""
     membership = require_membership(club_id, user, db)
     if membership.role != ClubRole.OWNER:
         raise HTTPException(
@@ -48,6 +53,7 @@ def require_owner(club_id: int, user: User, db: Session) -> ClubMember:
     return membership
 
 def get_activity_or_404(activity_id: int, db: Session) -> ClubActivity:
+    """Kiểm tra hoạt động có tồn tại không. Nếu sai ID, chặn và báo lỗi 404."""
     activity = db.query(ClubActivity).filter(ClubActivity.id == activity_id).first()
     if not activity:
         raise HTTPException(
@@ -70,8 +76,10 @@ def create_activity(
     Gán assignee phải là thành viên câu lạc bộ.
     """
     get_club_or_404(club_id, db)
+    
     require_membership(club_id, current_user, db)
 
+    # Kiểm tra xem người được giao việc (assignee) có phải là thành viên CLB không
     if activity_in.assignee_id is not None:
         assignee_membership = get_membership(club_id, activity_in.assignee_id, db)
         if not assignee_membership:
@@ -79,6 +87,7 @@ def create_activity(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Người được giao (assignee) phải là thành viên của câu lạc bộ",
             )
+
 
     new_activity = ClubActivity(
         club_id=club_id,
@@ -89,6 +98,8 @@ def create_activity(
         priority=activity_in.priority,
         due_date=activity_in.due_date,
     )
+
+    
     db.add(new_activity)
     db.commit()
     db.refresh(new_activity)
@@ -111,18 +122,21 @@ def list_activities(
     priority_filter: Optional[ActivityPriority] = Query(None, alias="priority", description="Lọc theo độ ưu tiên (LOW, MEDIUM, HIGH)"),
     assignee_id: Optional[int] = Query(None, description="Lọc theo ID người được giao"),
     search: Optional[str] = Query(None, description="Tìm theo tiêu đề (title)"),
-    page: int = Query(1, ge=1, description="Số trang (bắt đầu từ 1)"),
-    size: int = Query(20, ge=1, le=100, description="Kích thước trang"),
+    limit: int = Query(20, ge=1, le=100, description="Số lượng kết quả lấy ra"),
+    offset: int = Query(0, ge=0, description="Số lượng kết quả muốn bỏ qua từ đầu"),
 ):
     """
     Trả về danh sách hoạt động câu lạc bộ thuộc câu lạc bộ, phân trang, lọc và tìm kiếm.
     Chỉ **thành viên** mới xem được.
     """
+
     get_club_or_404(club_id, db)
     require_membership(club_id, current_user, db)
 
+    #  Bắt đầu xây dựng câu Query cơ bản
     query = db.query(ClubActivity).filter(ClubActivity.club_id == club_id)
 
+    #  Áp dụng các bộ lọc nếu người dùng có truyền lên URL
     if status_filter:
         query = query.filter(ClubActivity.status == status_filter)
     if priority_filter:
@@ -132,14 +146,14 @@ def list_activities(
     if search:
         query = query.filter(ClubActivity.title.ilike(f"%{search}%"))
 
-    # Sorting
+    #  Sắp xếp danh sách (Mới nhất lên đầu)
     query = query.order_by(desc(ClubActivity.created_at))
 
-    # Pagination
+    # Phân trang bằng thẳng limit và offset
     total = query.count()
-    offset = (page - 1) * size
-    activities = query.offset(offset).limit(size).all()
+    activities = query.offset(offset).limit(limit).all()
 
+    # 6. Ép kiểu dữ liệu qua Schema để chuẩn bị trả về
     data = [ActivityResponse.model_validate(act).model_dump() for act in activities]
 
     return build_response(
@@ -149,9 +163,8 @@ def list_activities(
         data={
             "items": data,
             "total": total,
-            "page": page,
-            "size": size,
-            "pages": (total + size - 1) // size
+            "limit": limit,
+            "offset": offset
         }
     )
 
@@ -167,7 +180,10 @@ def get_activity(
     Trả về chi tiết hoạt động câu lạc bộ.
     Chỉ cho phép nếu user là **thành viên** của câu lạc bộ chứa hoạt động đó.
     """
+    # 1. Tìm hoạt động trước
     activity = get_activity_or_404(activity_id, db)
+    
+    # 2. Dùng ID CLB của hoạt động đó để xem user có phải người trong CLB không
     require_membership(activity.club_id, current_user, db)
 
     return build_response(
@@ -186,33 +202,41 @@ def update_activity(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Cập nhật hoạt động câu lạc bộ. 
-    Người dùng phải là OWNER hoặc Assignee của hoạt động này.
-    Không ghi đè trường không gửi lên.
-    """
+    # 1. Lấy thông tin hoạt động và kiểm tra tư cách thành viên CLB
     activity = get_activity_or_404(activity_id, db)
     membership = require_membership(activity.club_id, current_user, db)
 
-    # Theo Spec: "Theo permission". Ta gán: OWNER hoặc Assignee mới được phép.
-    if membership.role != ClubRole.OWNER and activity.assignee_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Bạn không có quyền cập nhật hoạt động này (chỉ OWNER hoặc Assignee mới có quyền)"
-        )
-
+    # Lấy ra những dữ liệu cần sửa
     update_data = activity_in.model_dump(exclude_unset=True)
 
-    if "assignee_id" in update_data and update_data["assignee_id"] is not None:
-        assignee_membership = get_membership(activity.club_id, update_data["assignee_id"], db)
-        if not assignee_membership:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Người được giao (assignee) phải là thành viên của câu lạc bộ",
-            )
+    if membership.role == ClubRole.OWNER:
+        if "assignee_id" in update_data and update_data["assignee_id"] is not None:
+            assignee_membership = get_membership(activity.club_id, update_data["assignee_id"], db)
+            if not assignee_membership:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Người được giao (assignee) phải là thành viên của câu lạc bộ",
+                )
+            
+        for field, value in update_data.items():
+            setattr(activity, field, value) 
 
-    for field, value in update_data.items():
-        setattr(activity, field, value)
+    elif activity.assignee_id == current_user.id:
+        
+        if set(update_data.keys()) != {'status'}:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Người được giao (assignee) chỉ được cập nhật status",
+            )
+            
+        activity.status = update_data['status']
+
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bạn không có quyền cập nhật hoạt động này"
+        )
+
 
     db.commit()
     db.refresh(activity)
@@ -236,6 +260,7 @@ def delete_activity(
     Xóa hoạt động câu lạc bộ. Chỉ **OWNER** mới có quyền xóa.
     """
     activity = get_activity_or_404(activity_id, db)
+    
     require_owner(activity.club_id, current_user, db)
 
     db.delete(activity)
