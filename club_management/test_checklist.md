@@ -48,4 +48,3 @@
 - [ ] Các Endpoint đều có Summary và Description rõ ràng.
 - [ ] Model dữ liệu (Schema) Response trả về khớp với tài liệu (không chứa `password_hash`).
 - [ ] 100% case nghiệp vụ ở trên trả về Status Code đúng chuẩn (200, 201, 400, 403, 404), KHÔNG bị văng lỗi 500.
-
