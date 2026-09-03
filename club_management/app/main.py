@@ -6,17 +6,12 @@ from app.utils.response import build_response
 from app.models.user import User
 from app.models.club import Club, ClubMember
 from app.models.activity import ClubActivity
-# sửa task 18 
+
 from app.dependencies.auth import get_current_user
 
-# task 10 
 from fastapi import Depends
 from sqlalchemy.orm import Session
 from app.db.database import get_db
-
-# sửa task 7 
-from datetime import datetime
-
 
 
 
@@ -24,18 +19,6 @@ from datetime import datetime
 
 # Handler: Bắt lỗi HTTPException (400, 401, 403, 404...)
 async def http_exception_handler(request: Request, exc: HTTPException):
-    # sửa task  9
-    # if exc.status_code == 404:
-    #     return JSONResponse(
-    #             status_code=exc.status_code,
-    #             content=build_response(
-    #                 status_code=exc.status_code,
-    #                 message=str(exc.detail),
-    #                 path=request.url.path,
-    #                 data=None,
-    #                 errors=exc.detail,
-    #             )
-    #         )
 
     return JSONResponse(
         status_code=exc.status_code,
@@ -52,7 +35,6 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 
 # Handler: Bắt lỗi validation dữ liệu đầu vào (422)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    # Trích xuất chỉ lấy phần text thông báo lỗi
     error_messages = [err.get("msg") for err in exc.errors()]
     
     return JSONResponse(
@@ -61,8 +43,8 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
             status_code=422,
             message="Dữ liệu đầu vào không hợp lệ",
             path=request.url.path,
-            data=None, # Nhớ thêm data=None cho đúng cấu trúc
-            errors=error_messages # Truyền danh sách các chuỗi text vào đây
+            data=None, 
+            errors=error_messages 
         )
     )
 
@@ -119,31 +101,7 @@ def get_api():
 
 def health_check():
     return {"status": "ok", "message": "Server is running smoothly!"}
-#sửa task 10 
-# def health_check(db:Session = Depends(get_db)):
-#     count_user = db.query(User).count()
-#     return {'count_user': count_user}
 
-
-#sửa task 18 
-@app.get('/verify-token')
-def verify_token (
-    request: Request,
-    current_user: User = Depends(get_current_user)
-):
-    return JSONResponse(
-            status_code=200,
-            content=build_response(
-                status_code=200,
-                message="Lấy token thành công",
-                path=request.url.path,
-                data ={
-                    "valid": True,
-                    "user_id": current_user.id
-                }, 
-            )
-        )
-    pass
 
 from app.routers import auth, users, club, activity
 

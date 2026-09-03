@@ -1,14 +1,14 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr , Field
 from datetime import datetime
-from typing import Optional
+from typing import Optional 
 from app.models.user import UserRole
 
 class UserBase(BaseModel):
     email: EmailStr
-    full_name: str
+    full_name: str =  Field(min_length=1, max_length=255)
 
 class UserCreate(UserBase):
-    password: str
+    password: str 
 
 class UserResponse(UserBase):
     id: int
