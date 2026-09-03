@@ -1,5 +1,5 @@
 from pydantic import BaseModel, field_validator
-from datetime import datetime
+from datetime import datetime , timedelta
 from typing import Optional
 from app.models.club import ClubRole
 from app.schemas.user import UserResponse
@@ -42,7 +42,7 @@ class ClubUpdate(BaseModel):
 class ClubResponse(ClubBase):
     id: int
     owner_id: int
-    created_at: datetime
+    created_at: datetime 
 
     class Config:
         from_attributes = True
